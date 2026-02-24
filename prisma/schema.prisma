@@ -1,0 +1,116 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "./generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  VISITOR
+  STUDENT
+  ADMIN
+}
+
+model User {
+  id            String          @id @default(uuid())
+  email         String          @unique
+  fullName      String?
+  role          Role            @default(VISITOR)
+  avatarEmoji   String?
+  createdAt     DateTime        @default(now())
+
+  accounts      Account[]
+  interests     UserInterest[]
+  participations Participation[] @relation("VisitorParticipations")
+  validations    Participation[] @relation("ValidatorActions")
+  validators     ActivityValidator[]
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  provider           String
+  providerAccountId  String
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model UserInterest {
+  id         Int      @id @default(autoincrement())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  sectionId  Int
+  section    Section  @relation(fields: [sectionId], references: [id])
+
+  @@unique([userId, sectionId])
+}
+
+model Section {
+  id         Int            @id @default(autoincrement())
+  name       String
+  emoji      String
+  activities Activity[]
+  interested UserInterest[]
+}
+
+model Label {
+  id         Int        @id @default(autoincrement())
+  name       String
+  icon       String?
+  activities Activity[]
+}
+
+model Location {
+  id         Int        @id @default(autoincrement())
+  building   String
+  floor      String?
+  room       String?
+  activities Activity[]
+}
+
+model Activity {
+  id               Int                @id @default(autoincrement())
+  title            String
+  description      String?            @db.Text
+  points           Int                @default(10)
+  startTime        DateTime
+  endTime          DateTime
+
+  sectionId        Int
+  section          Section            @relation(fields: [sectionId], references: [id], onDelete: NoAction)
+  labelId          Int
+  label            Label              @relation(fields: [labelId], references: [id], onDelete: NoAction)
+  locationId       Int
+  location         Location           @relation(fields: [locationId], references: [id], onDelete: NoAction)
+
+  validators       ActivityValidator[]
+  participations   Participation[]
+}
+
+model ActivityValidator {
+  id             Int      @id @default(autoincrement())
+  activityId     Int
+  activity       Activity @relation(fields: [activityId], references: [id], onDelete: NoAction)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: NoAction)
+}
+
+model Participation {
+  id               Int      @id @default(autoincrement())
+  userId           String
+  user             User     @relation("VisitorParticipations", fields: [userId], references: [id])
+  activityId       Int
+  activity         Activity @relation(fields: [activityId], references: [id])
+  validatedById    String?
+  validator        User?    @relation("ValidatorActions", fields: [validatedById], references: [id])
+  validatedAt      DateTime @default(now())
+}
